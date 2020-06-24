@@ -1,14 +1,19 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:providerapp/models/user.dart';
+import 'package:providerapp/providers/auth_provider.dart';
+import 'package:providerapp/providers/carts_provider.dart';
 import 'package:providerapp/screens/product_detail_screen.dart';
+
 import '../models/product.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class ProductItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Product _product = Provider.of<Product>(context, listen: false);
+    CartsProvider _cart = Provider.of<CartsProvider>(context, listen: false);
+    User _currentUser = Provider.of<AuthProvider>(context, listen: false).user;
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: GridTile(
@@ -51,14 +56,29 @@ class ProductItem extends StatelessWidget {
               icon: Icon(
                   product.isFavourite ? Icons.favorite : Icons.favorite_border),
               onPressed: () {
-                product.toggleFavourite();
+                product.toggleFavourite(_currentUser.id);
               },
             ),
           ),
           trailing: IconButton(
             icon: Icon(Icons.shopping_cart),
             color: Colors.yellow,
-            onPressed: () {},
+            onPressed: () {
+              _cart.addItem(_product.id, _product.price, _product.title);
+              Scaffold.of(context).hideCurrentSnackBar();
+              Scaffold.of(context).showSnackBar(SnackBar(
+                content: Text(
+                  'Added Item to Cart!',
+                ),
+                duration: Duration(seconds: 2),
+                action: SnackBarAction(
+                  label: "UNDO",
+                  onPressed: () {
+                    _cart.removeSingleItem(_product.id);
+                  },
+                ),
+              ));
+            },
           ),
           title: Center(
             child: Text(

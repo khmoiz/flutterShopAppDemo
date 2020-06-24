@@ -1,9 +1,19 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
+
 import '../models/product.dart';
 
 class ProductsProvider with ChangeNotifier {
-  List<Product> _items = [
+  final Firestore _db = Firestore.instance;
+  var startup = true;
+
+  ProductsProvider() {
+//    getProductsFromService();
+  }
+
+  List<Product> _items = [];
+  /*List<Product> _items = [
     Product(
         id: '0',
         title: 'Red Item',
@@ -32,20 +42,139 @@ class ProductsProvider with ChangeNotifier {
         price: 49.99,
         imageURL:
             'https://cf.shopee.com.my/file/5f5d6a6d2d949ad7b664934beb80baac'),
-  ];
+  ];*/
 
-  var showFavouritesOnly = false;
+  final service = FireStoreService();
+
+  var _showFavourites = false;
 
   List<Product> get items {
-    if (showFavouritesOnly) {
-      return _items.where((product) => product.isFavourite).toList();
-    }
     return [..._items];
+  }
+
+  List<Product> get favouriteItems {
+    return _items.where((product) => product.isFavourite).toList();
+  }
+
+  List<Product> userFavouriteItems(List<String> favItems) {
+    return _items.where((product) => favItems.contains(product.id)).toList();
   }
 
   Product findById(String id) {
     return _items.firstWhere((product) => product.id == id);
   }
 
-  void addProduct() {}
+  void deleteProduct(String productID) {
+    _items.removeWhere((element) => element.id == productID);
+    deleteFromFireStore(productID);
+    notifyListeners();
+  }
+
+  void deleteFromFireStore(String id) async {
+    await _db.collection("products").document(id).delete().then((_) {
+      print("Item Deleted");
+    });
+  }
+
+  void updateProduct(String id, Product newProduct) async {
+    var prod = _items.indexWhere((item) => item.id == id);
+    if (prod != null) {
+      _items[prod] = newProduct;
+      saveData(newProduct);
+    }
+    notifyListeners();
+  }
+
+  void saveData(Product newProduct) async {
+    try {
+      await _db
+          .collection("products")
+          .document(newProduct.id)
+          .setData(newProduct.createMap(), merge: true)
+          .then((_) {
+        print("success saving data");
+      });
+    } on PlatformException catch (e) {
+      print("${e.toString()}");
+    }
+  }
+
+  void refreshProductsListFromService() {
+    startup = true;
+    _items.clear();
+    getProductsFromService();
+  }
+
+  void getProductsFromService() async {
+//    List<Product> temp
+    if (startup) {
+      await _db
+          .collection('products')
+          .getDocuments()
+          .then((snapShot) => {
+                snapShot.documents.forEach((result) {
+//            _fireItems.add(new Product.fromFirestore(result));
+                  _items.add(Product.fromFirestore(result));
+                })
+              })
+          .whenComplete(() => {notifyListeners()});
+      startup = false;
+    }
+    print("${_items.length} is the length of the FIREITEMS");
+    if (_items.isNotEmpty) {
+      _items.forEach((element) {
+        print(
+            "§§§§§§§ ${element.id} ${element.title} ${element.price} ${element.isFavourite} §§§§§§§");
+      });
+    }
+  }
+//
+//  Stream<List<Product>> getProductsFromServiceStream() {
+//    return _db.collection('products').snapshots().map((snapshot) => snapshot
+//        .documents
+//        .map((document) => Product.fromFirestore(document.data))
+//        .toList());
+//  }
+
+  void saveDataFromService(List<Product> newProducts) {
+    items.addAll(newProducts);
+  }
+
+  void addProduct(Product newProduct) {
+    _items.add(newProduct);
+    saveData(newProduct);
+    notifyListeners();
+  }
+}
+
+class FireStoreService {
+  Firestore _db = Firestore.instance;
+
+  Future<void> saveProduct(Product product) {
+    return _db
+        .collection('products')
+        .document(product.id)
+        .setData(product.createMap());
+  }
+
+  Future<void> saveProducts(List<Product> products) async {
+    for (Product product in products) {
+      this.saveProduct(product);
+    }
+  }
+//
+//  Stream<List<Product>> getProducts(BuildContext context) {
+//    var temp = _db.collection('Products').snapshots().map((snapshot) => snapshot
+//        .documents
+//        .map((document) => Product.fromFirestore(document.data))
+//        .toList());
+////    var productsProvider =
+////    Provider.of<ProductsProvider>(context, listen: false);
+////    productsProvider.setDataFromService(temp);
+//    return temp;
+//  }
+
+  Future<void> removeItem(String productId) {
+    return _db.collection('Products').document(productId).delete();
+  }
 }

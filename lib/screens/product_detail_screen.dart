@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:providerapp/models/product.dart';
 import 'package:providerapp/providers/products_provider.dart';
 
 class ProductDetailScreen extends StatelessWidget {
@@ -19,36 +18,38 @@ class ProductDetailScreen extends StatelessWidget {
         appBar: AppBar(
           title: Text('${_product.title}'),
         ),
-        body: Container(
-          child: Center(
-            child: Column(
-              children: [
-                Card(
-                    elevation: 10,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Image.network(_product.imageURL),
-                    )),
-                SizedBox(
-                  height: 20,
-                ),
-                Divider(
-                  thickness: 5,
-                  height: 5,
-                ),
-                Text("${_product.description}"),
-                Text("${_product.price.toString()}\$"),
-                Text("${_product.isFavourite.toString()}"),
-                IconButton(
-                  color: Colors.redAccent,
-                  icon: Icon(_product.isFavourite
-                      ? Icons.favorite
-                      : Icons.favorite_border),
-                  onPressed: () {
-                    _product.toggleFavourite();
-                  },
-                ),
-              ],
+        body: SingleChildScrollView(
+          child: Container(
+            child: Center(
+              child: Column(
+                children: [
+                  Card(
+                      elevation: 10,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Image.network(_product.imageURL),
+                      )),
+                  SizedBox(
+                    height: 20,
+                  ),
+                  Divider(
+                    thickness: 5,
+                    height: 5,
+                  ),
+                  Text("${_product.description}"),
+                  Text("${_product.price.toString()}\$"),
+                  Text("${_product.isFavourite.toString()}"),
+                  IconButton(
+                    color: Colors.redAccent,
+                    icon: Icon(_product.isFavourite
+                        ? Icons.favorite
+                        : Icons.favorite_border),
+                    onPressed: () {
+//                      _product.toggleFavourite();
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ));
