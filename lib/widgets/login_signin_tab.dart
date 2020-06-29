@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:providerapp/models/auth_status.dart';
 import 'package:providerapp/providers/auth_provider.dart';
 import 'package:providerapp/screens/demo_user_home_screen.dart';
 import 'package:providerapp/screens/products_overview_screen.dart';
@@ -39,7 +40,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context);
 
     return Card(
       elevation: 5,
@@ -114,34 +115,42 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
 //                SnackBar(content: Text('Request Timed Out! Please try again')));
 //          });
         }
-
         break;
       case AuthType.Phone:
         if (_phoneForm.currentState.validate()) {
           _phoneForm.currentState.save();
-          var userAccount = await authProvider.demoSignInPhone(
-              context, phoneTextController.text);
-          await showDialog(
-            context: context,
-            barrierDismissible: true,
-            // false = user must tap button, true = tap outside dialog
-            builder: (BuildContext dialogContext) {
-              return AlertDialog(
-                title: Text('Successfully Logged ${userAccount.phoneNumber}!'),
-                content: Text('Hey ${userAccount.nickName}, we found you!'),
-                actions: <Widget>[
-                  FlatButton(
-                    child: Text('Go to my Home Page'),
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop(); // Dismiss alert dialog
-                    },
-                  ),
-                ],
-              );
-            },
-          ).then((value) {
-            Navigator.of(context).pushNamed(DemoUserHomeScreen.routeName);
-          });
+//          await authProvider.verifyPhone(context, phoneTextController.text);
+          await authProvider.demoVerifyPhone(context);
+          if (authProvider.status == AuthStatus.Authenticated) {
+            await showDialog(
+              context: context,
+              barrierDismissible: true,
+              // false = user must tap button, true = tap outside dialog
+              builder: (BuildContext dialogContext) {
+                return AlertDialog(
+                  title: Text(
+                      'Successfully Logged ${authProvider.status.toString()}!'),
+                  content: Text('Hey  we found you!'),
+                  actions: <Widget>[
+                    FlatButton(
+                      child: Text('Go to my Home Page'),
+                      onPressed: () {
+                        Navigator.of(dialogContext)
+                            .pop(); // Dismiss alert dialog
+                      },
+                    ),
+                  ],
+                );
+              },
+            ).then((_) {
+              Navigator.of(context).pushNamed(DemoUserHomeScreen.routeName);
+            });
+          } else {
+            Scaffold.of(context).showSnackBar(SnackBar(
+              content: Text('FAILED'),
+            ));
+          }
+
 //          authProvider
 //              .signIn(emailTextController.text, passwordTextController.text)
 //              .then((_) {
@@ -240,7 +249,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
             TextFormField(
               controller: phoneTextController,
               decoration:
-              InputDecoration(labelText: 'Phone Number', prefixText: "+1"),
+                  InputDecoration(labelText: 'Phone Number', prefixText: "+1"),
               textInputAction: TextInputAction.next,
               keyboardType: TextInputType.phone,
               onFieldSubmitted: (_) =>

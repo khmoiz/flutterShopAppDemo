@@ -47,14 +47,59 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> verifyPhone(BuildContext context, String number) async {
-    final PhoneCodeSent smsOtpSent = (String verId, [int forceCodeResend]) {
-      this.verificationId = verId;
-      smsOTPDialog(context).then((value) {
-        print("signed in from dialogue");
-      });
-    };
+  Future<void> demoVerifyPhone(BuildContext context) async {
+//    final PhoneCodeSent smsOtpSent = (String verId, [int forceCodeResend]) {
+//      this.verificationId = verId;
+//      smsOTPDialog(context).then((value) {
+//        print("signed in from dialogue");
+//      });
+//    };
+    try {
+      await _auth.verifyPhoneNumber(
+          phoneNumber: ("+14167224564"),
+          timeout: const Duration(seconds: 15),
+          verificationCompleted: (AuthCredential phoneCredential) {
+            print(
+                "§§§§§§ AuthCredential :  ${phoneCredential.toString()} §§§§§§");
+            this.pCredential = phoneCredential;
+            signInPhone(context);
+            _status = AuthStatus.Authenticated;
+            notifyListeners();
+          },
+          verificationFailed: (AuthException exception) {
+            print("§§§§§ AuthException :  ${exception.message} §§§§§§");
+            throw ("Verification Failed");
+            _status = AuthStatus.Uninitialized;
+            notifyListeners();
+          },
+          codeSent: (verificationId, [code]) =>
+              _smsCodeSent(verificationId, [code]),
+          codeAutoRetrievalTimeout: (String verId) {
+            this.verificationId = verId;
+            smsOTPDialog(context).then((_) {
+              signInPhone(context).then((value) {
+                _status = (value)
+                    ? AuthStatus.Authenticated
+                    : AuthStatus.Unauthenticated;
+                notifyListeners();
+              });
+            });
+          });
+    } catch (e) {
+//      handleError(e, context);
+      errorMessage = (e as PlatformException).message;
+      notifyListeners();
+      throw ((e as PlatformException).message);
+    }
+  }
 
+  Future<void> verifyPhone(BuildContext context, String number) async {
+//    final PhoneCodeSent smsOtpSent = (String verId, [int forceCodeResend]) {
+//      this.verificationId = verId;
+//      smsOTPDialog(context).then((value) {
+//        print("signed in from dialogue");
+//      });
+//    };
     try {
       await _auth.verifyPhoneNumber(
           phoneNumber: ("+1" + number.trim()),
@@ -65,22 +110,33 @@ class AuthProvider extends ChangeNotifier {
                     .toString()} §§§§§§");
             this.pCredential = phoneCredential;
             signInPhone(context);
+            _status = AuthStatus.Authenticated;
+            notifyListeners();
           },
           verificationFailed: (AuthException exception) {
             print("§§§§§ AuthException :  ${exception.message} §§§§§§");
             throw ("Verification Failed");
+            _status = AuthStatus.Uninitialized;
+            notifyListeners();
           },
           codeSent: (verificationId, [code]) =>
               _smsCodeSent(verificationId, [code]),
-          codeAutoRetrievalTimeout: (String verId) {
+          codeAutoRetrievalTimeout: (String verId) async {
             this.verificationId = verId;
-            smsOTPDialog(context);
-            throw ("Verification Timed OUT");
+            await smsOTPDialog(context).then((_) async {
+              await signInPhone(context).then((value) {
+                _status = (value)
+                    ? AuthStatus.Authenticated
+                    : AuthStatus.Unauthenticated;
+                notifyListeners();
+              });
+            });
           });
     } catch (e) {
 //      handleError(e, context);
       errorMessage = (e as PlatformException).message;
       notifyListeners();
+      throw ((e as PlatformException).message);
     }
   }
 
@@ -88,10 +144,10 @@ class AuthProvider extends ChangeNotifier {
     this.verificationId = vId;
   }
 
-  Future<bool> smsOTPDialog(BuildContext context) {
+  Future<void> smsOTPDialog(BuildContext context) {
     return showDialog(
         context: context,
-        barrierDismissible: false,
+        barrierDismissible: true,
         builder: (BuildContext ctxt) {
           return AlertDialog(
             title: Text('Enter SMS Code'),
@@ -110,15 +166,9 @@ class AuthProvider extends ChangeNotifier {
             ),
             actions: <Widget>[
               FlatButton(
-                child: Text('Cancel'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              FlatButton(
                 child: Text('Done'),
                 onPressed: () async {
-                  await signInPhone(context);
+                  Navigator.of(context).pop();
                 },
               )
             ],
@@ -162,7 +212,8 @@ class AuthProvider extends ChangeNotifier {
     return Future.value(user);
   }
 
-  Future<void> signInPhone(BuildContext context, {bool timeOut = false}) async {
+  Future<bool> signInPhone(BuildContext context, {bool timeOut = false}) async {
+    bool verified = false;
     try {
       final AuthCredential credential = (timeOut)
           ? PhoneAuthProvider.getCredential(
@@ -181,6 +232,7 @@ class AuthProvider extends ChangeNotifier {
               getUserDataFromStore(_currentUser.id);
               getUserFavourites();
             }
+            verified = true;
             notifyListeners();
 //          Navigator.of(context).pushNamed(ProductsOverview.routeName);
           });
@@ -189,15 +241,17 @@ class AuthProvider extends ChangeNotifier {
         }
       });
 //
-
+      return verified;
     } on PlatformException catch (e) {
 //      handleError(e, context);
       errorMessage = e.message;
       notifyListeners();
+      return false;
     }
   }
 
-  Future<void> signUp(String email, String password, String nickname, String number) async {
+  Future<void> signUp(String email, String password, String nickname,
+      String number) async {
     await _auth
         .createUserWithEmailAndPassword(email: email, password: password)
         .catchError((onError) {

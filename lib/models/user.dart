@@ -58,6 +58,11 @@ class User extends Equatable with ChangeNotifier {
   }
 
   @override
+  String toString() {
+    return "ID [$id] | Name [$nickName] | Email [$email] | Number [$phoneNumber] ";
+  }
+
+  @override
   // TODO: implement props
   List<Object> get props => [id, email, nickName, phoneNumber, type];
 }
