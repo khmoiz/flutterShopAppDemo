@@ -38,10 +38,12 @@ class User extends Equatable with ChangeNotifier {
         type = firestoreSnap['type'],
         phoneNumber = firestoreSnap['phoneNumber'];
 
-  User.fromUserAuth(FirebaseUser user, String accountType)
+  User.newUserFromAuth(FirebaseUser user, String accountType)
       : id = user.uid,
-        nickName = user.displayName,
-        email = user.email,
+        nickName = (user.displayName == null || user.displayName == '')
+            ? ''
+            : user.displayName,
+        email = (user.email == null || user.email == '') ? '' : user.email,
         type = accountType,
         phoneNumber = user.phoneNumber;
 
