@@ -270,9 +270,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
                 child: FlatButton(
                   child: Text(
                     'Want to use Email instead?',
-                    style: TextStyle(color: Theme
-                        .of(context)
-                        .primaryColor),
+                    style: TextStyle(color: Theme.of(context).primaryColor),
                   ),
                   onPressed: () {
                     changeAuthType();

@@ -106,8 +106,7 @@ class AuthProvider extends ChangeNotifier {
           timeout: const Duration(seconds: 15),
           verificationCompleted: (AuthCredential phoneCredential) {
             print(
-                "§§§§§§ AuthCredential :  ${phoneCredential
-                    .toString()} §§§§§§");
+                "§§§§§§ AuthCredential :  ${phoneCredential.toString()} §§§§§§");
             this.pCredential = phoneCredential;
             signInPhone(context);
             _status = AuthStatus.Authenticated;
