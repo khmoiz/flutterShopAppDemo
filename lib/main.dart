@@ -8,7 +8,6 @@ import 'package:providerapp/providers/auth_provider.dart';
 import 'package:providerapp/providers/carts_provider.dart';
 import 'package:providerapp/providers/order_provider.dart';
 import 'package:providerapp/screens/cart_screen.dart';
-import 'package:providerapp/screens/demo_user_home_screen.dart';
 import 'package:providerapp/screens/edit_product_screen.dart';
 import 'package:providerapp/screens/login_screen.dart';
 import 'package:providerapp/screens/order_screen.dart';
@@ -43,7 +42,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (ctx) => ProductsProvider()),
         ChangeNotifierProvider(create: (ctx) => CartsProvider()),
         ChangeNotifierProvider(create: (ctx) => OrderProvider()),
-        ChangeNotifierProvider(create: (ctx) => AuthProvider.initialize()),
+        ChangeNotifierProvider(create: (ctx) => AuthProvider()),
 
 //        ChangeNotifierProvider(create: (ctx) => locator<ProductCRUD>()),
       ],
@@ -58,7 +57,6 @@ class MyApp extends StatelessWidget {
           EditProductScreen.routeName: (context) => EditProductScreen(),
           LoginScreen.routeName: (context) => LoginScreen(),
           ProductsOverview.routeName: (context) => ProductsOverview(),
-          DemoUserHomeScreen.routeName: (context) => DemoUserHomeScreen(),
           UserFavouriteProductsScreen.routeName: (context) =>
               UserFavouriteProductsScreen(),
         },
