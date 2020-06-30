@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:providerapp/widgets/login_register_tab.dart';
 import 'package:providerapp/widgets/login_signin_tab.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,7 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-        length: 1,
+        length: 2,
         child: Scaffold(
           appBar: AppBar(
             bottom: TabBar(
@@ -22,6 +23,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: Icon(Icons.lock_open),
                   text: "Login",
                 ),
+                Tab(
+                  icon: Icon(Icons.supervisor_account),
+                  text: "Register Account",
+                ),
               ],
             ),
             title: Text('Welcome'),
@@ -29,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
           body: TabBarView(
             children: [
               SingleChildScrollView(child: LoginSigninTab()),
+              SingleChildScrollView(child: LoginRegisterTab()),
             ],
           ),
         ));
