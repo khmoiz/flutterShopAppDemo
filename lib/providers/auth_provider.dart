@@ -4,10 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:providerapp/models/auth_status.dart';
 import 'package:providerapp/models/user.dart';
-import 'package:providerapp/widgets/socialAuth/facebook_web_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthProvider extends ChangeNotifier {
+  static const SP_LOGGEDIN = 'logged-in';
   String _token, _userId;
   DateTime _expiryDate;
   User _currentUser;
@@ -16,9 +18,164 @@ class AuthProvider extends ChangeNotifier {
       "https://www.facebook.com/connect/login_success.html";
   List<String> _userFavourites = [];
 
+  String smsOtp, verificationId, errorMessage;
+  bool loggedIn, loading = false;
+  AuthStatus _status = AuthStatus.Uninitialized;
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  AuthCredential pCredential;
   final Firestore _db = Firestore.instance;
   final GoogleSignIn _googleSignIn = new GoogleSignIn();
+
+  AuthProvider();
+
+  AuthProvider.initialize() {
+//    readPrefs();
+  }
+
+  Future<void> readPrefs() async {
+    await Future.delayed(Duration(seconds: 2)).then((value) async {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      loggedIn = prefs.getBool(SP_LOGGEDIN) ?? false;
+      print("§§§§§§§§ ${loggedIn.toString()} happened here §§§§§§§§");
+
+      if (loggedIn) {
+        _userId = (await _auth.currentUser()).uid;
+        notifyListeners();
+        return;
+      }
+    });
+  }
+
+  Future<void> demoVerifyPhone(BuildContext context) async {
+//    final PhoneCodeSent smsOtpSent = (String verId, [int forceCodeResend]) {
+//      this.verificationId = verId;
+//      smsOTPDialog(context).then((value) {
+//        print("signed in from dialogue");
+//      });
+//    };
+    try {
+      await _auth.verifyPhoneNumber(
+          phoneNumber: ("+14167224564"),
+          timeout: const Duration(seconds: 15),
+          verificationCompleted: (AuthCredential phoneCredential) {
+            print(
+                "§§§§§§ AuthCredential :  ${phoneCredential.toString()} §§§§§§");
+            this.pCredential = phoneCredential;
+            signInPhone(context);
+            _status = AuthStatus.Authenticated;
+            notifyListeners();
+          },
+          verificationFailed: (AuthException exception) {
+            print("§§§§§ AuthException :  ${exception.message} §§§§§§");
+            throw ("Verification Failed");
+            _status = AuthStatus.Uninitialized;
+            notifyListeners();
+          },
+          codeSent: (verificationId, [code]) =>
+              _smsCodeSent(verificationId, [code]),
+          codeAutoRetrievalTimeout: (String verId) {
+            this.verificationId = verId;
+            smsOTPDialog(context).then((_) {
+              signInPhone(context).then((value) {
+                _status = (value)
+                    ? AuthStatus.Authenticated
+                    : AuthStatus.Unauthenticated;
+                notifyListeners();
+              });
+            });
+          });
+    } catch (e) {
+//      handleError(e, context);
+      errorMessage = (e as PlatformException).message;
+      notifyListeners();
+      throw ((e as PlatformException).message);
+    }
+  }
+
+  Future<void> verifyPhone(BuildContext context, String number) async {
+//    final PhoneCodeSent smsOtpSent = (String verId, [int forceCodeResend]) {
+//      this.verificationId = verId;
+//      smsOTPDialog(context).then((value) {
+//        print("signed in from dialogue");
+//      });
+//    };
+    try {
+      await _auth.verifyPhoneNumber(
+          phoneNumber: ("+1" + number.trim()),
+          timeout: const Duration(seconds: 15),
+          verificationCompleted: (AuthCredential phoneCredential) {
+            print(
+                "§§§§§§ AuthCredential :  ${phoneCredential.toString()} §§§§§§");
+            this.pCredential = phoneCredential;
+            signInPhone(context);
+            _status = AuthStatus.Authenticated;
+            notifyListeners();
+          },
+          verificationFailed: (AuthException exception) {
+            print("§§§§§ AuthException :  ${exception.message} §§§§§§");
+            throw ("Verification Failed");
+            _status = AuthStatus.Uninitialized;
+            notifyListeners();
+          },
+          codeSent: (verificationId, [code]) =>
+              _smsCodeSent(verificationId, [code]),
+          codeAutoRetrievalTimeout: (String verId) async {
+            this.verificationId = verId;
+            await smsOTPDialog(context).then((_) async {
+              await signInPhone(context).then((value) {
+                _status = (value)
+                    ? AuthStatus.Authenticated
+                    : AuthStatus.Unauthenticated;
+                notifyListeners();
+              });
+            });
+          });
+    } catch (e) {
+//      handleError(e, context);
+      errorMessage = (e as PlatformException).message;
+      notifyListeners();
+      throw ((e as PlatformException).message);
+    }
+  }
+
+  _smsCodeSent(String vId, List<int> code) {
+    this.verificationId = vId;
+  }
+
+  Future<void> smsOTPDialog(BuildContext context) {
+    return showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext ctxt) {
+          return AlertDialog(
+            title: Text('Enter SMS Code'),
+            contentPadding: EdgeInsets.all(10),
+            content: Container(
+              height: 85,
+              child: Column(
+                children: <Widget>[
+                  TextField(
+                    onChanged: (value) {
+                      this.smsOtp = value;
+                    },
+                  )
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              FlatButton(
+                child: Text('Done'),
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                },
+              )
+            ],
+          );
+        });
+  }
+
+  AuthStatus get status => _status;
 
   User get user {
     return _currentUser;
@@ -28,8 +185,72 @@ class AuthProvider extends ChangeNotifier {
     return _userFavourites;
   }
 
-  Future<void> signUp(
-      String email, String password, String nickname, String number) async {
+  Future<User> demoSignInPhone(BuildContext context, String number) async {
+    var user = await showDialog(
+      context: context,
+      barrierDismissible: true,
+      // false = user must tap button, true = tap outside dialog
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('AUTHTEST '),
+          content: Text('$number'),
+          actions: <Widget>[
+            FlatButton(
+              child: Text('Go to my Home Page'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Dismiss alert dialog
+              },
+            ),
+          ],
+        );
+      },
+    ).then((value) {
+      Future.delayed(Duration(seconds: 2));
+      return new User.emptyUser(nickName: "Moiz Khan", phoneNumber: number);
+    });
+    return Future.value(user);
+  }
+
+  Future<bool> signInPhone(BuildContext context, {bool timeOut = false}) async {
+    bool verified = false;
+    try {
+      final AuthCredential credential = (timeOut)
+          ? PhoneAuthProvider.getCredential(
+          verificationId: this.verificationId, smsCode: this.smsOtp)
+          : this.pCredential;
+      await _auth
+          .signInWithCredential(credential)
+          .then((AuthResult result) async {
+        if (result != null) {
+          _currentUser = new User.newUserFromAuth(result.user, "Local");
+          await getUserDataFromStore(user.id).then((DocumentSnapshot snapShot) {
+            if (snapShot == null || !(snapShot.exists)) {
+              writeNewUserData(_currentUser);
+              getUserFavourites();
+            } else {
+              getUserDataFromStore(_currentUser.id);
+              getUserFavourites();
+            }
+            verified = true;
+            notifyListeners();
+//          Navigator.of(context).pushNamed(ProductsOverview.routeName);
+          });
+          //        Navigator.of(context).pushNamed(ProductsOverview.routeName);
+
+        }
+      });
+//
+      return verified;
+    } on PlatformException catch (e) {
+//      handleError(e, context);
+      errorMessage = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> signUp(String email, String password, String nickname,
+      String number) async {
     await _auth
         .createUserWithEmailAndPassword(email: email, password: password)
         .catchError((onError) {
@@ -64,13 +285,13 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signInUsingGoogle() async {
     GoogleSignInAccount googleSignInAccount =
-        await _googleSignIn.signIn().catchError((onError) {
+    await _googleSignIn.signIn().catchError((onError) {
       throw Exception("${(onError as PlatformException).code}");
     });
     if (googleSignInAccount != null) {
       try {
         GoogleSignInAuthentication signInAuthentication =
-            await googleSignInAccount.authentication;
+        await googleSignInAccount.authentication;
         final AuthCredential credential = GoogleAuthProvider.getCredential(
           accessToken: signInAuthentication.accessToken,
           idToken: signInAuthentication.idToken,
@@ -79,46 +300,7 @@ class AuthProvider extends ChangeNotifier {
         await _auth
             .signInWithCredential(credential)
             .then((AuthResult result) async {
-          _currentUser = new User.fromUserAuth(result.user, "Google");
-          await getUserDataFromStore(result.user.uid)
-              .then((DocumentSnapshot snapShot) {
-            if (snapShot == null || !(snapShot.exists)) {
-              writeNewUserData(_currentUser);
-              getUserFavourites();
-            } else {
-              getUserDataFromStore(_currentUser.id);
-              getUserFavourites();
-            }
-            notifyListeners();
-          });
-        }).catchError((onError) {
-          throw Exception("${(onError as PlatformException).code}");
-        });
-      } catch (e) {
-        throw Exception(e);
-      }
-    }
-  }
-
-  Future<void> signInUsingFacebook(BuildContext context) async {
-    String facebookResult = await Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (context) => FacebookWebView(
-                selectedUrl:
-                    'https://www.facebook.com/dialog/oauth?client_id=$facebookClientId&redirect_uri=$facebookRedirectUrl&response_type=token&scope=email,public_profile,',
-              ),
-          maintainState: true),
-    );
-
-    if (facebookResult != null) {
-      try {
-        final facebookAuthCred =
-            FacebookAuthProvider.getCredential(accessToken: facebookResult);
-        await _auth
-            .signInWithCredential(facebookAuthCred)
-            .then((AuthResult result) async {
-          _currentUser = new User.fromUserAuth(result.user, "Facebook");
+          _currentUser = new User.newUserFromAuth(result.user, "Google");
           await getUserDataFromStore(result.user.uid)
               .then((DocumentSnapshot snapShot) {
             if (snapShot == null || !(snapShot.exists)) {
@@ -148,50 +330,13 @@ class AuthProvider extends ChangeNotifier {
         .where("isFavourite", isEqualTo: true)
         .getDocuments()
         .then((snapShot) => {
-              print("${snapShot.toString()}"),
-              snapShot.documents.forEach((favItem) {
-                _userFavourites.add(favItem['id']);
-                print('${favItem['id']}');
-              }),
-            });
+      print("${snapShot.toString()}"),
+      snapShot.documents.forEach((favItem) {
+        _userFavourites.add(favItem['id']);
+        print('${favItem['id']}');
+      }),
+    });
     notifyListeners();
-  }
-
-  Future<void> signInUsingTwitter(BuildContext context) async {
-    String twitterResult = await Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (context) => FacebookWebView(
-                selectedUrl:
-                    'https://www.facebook.com/dialog/oauth?client_id=$facebookClientId&redirect_uri=$facebookRedirectUrl&response_type=token&scope=email,public_profile,',
-              ),
-          maintainState: true),
-    );
-
-    if (twitterResult != null) {
-      try {
-        final facebookAuthCred =
-            FacebookAuthProvider.getCredential(accessToken: twitterResult);
-        await _auth
-            .signInWithCredential(facebookAuthCred)
-            .then((AuthResult result) async {
-          _currentUser = new User.fromUserAuth(result.user, "Facebook");
-          await getUserDataFromStore(result.user.uid)
-              .then((DocumentSnapshot snapShot) {
-            if (snapShot == null || !(snapShot.exists)) {
-              writeNewUserData(_currentUser);
-            } else {
-              getUserDataFromStore(_currentUser.id);
-            }
-            notifyListeners();
-          });
-        }).catchError((onError) {
-          throw Exception("${(onError as PlatformException).code}");
-        });
-      } catch (e) {
-        throw Exception(e);
-      }
-    }
   }
 
   static Future<bool> checkAppleSignIn() async {
@@ -212,12 +357,12 @@ class AuthProvider extends ChangeNotifier {
           final credential = oAuthProvider.getCredential(
             idToken: String.fromCharCodes(appleIdCredential.identityToken),
             accessToken:
-                String.fromCharCodes(appleIdCredential.authorizationCode),
+            String.fromCharCodes(appleIdCredential.authorizationCode),
           );
           await _auth
               .signInWithCredential(credential)
               .then((AuthResult result) async {
-            _currentUser = new User.fromUserAuth(result.user, "Apple");
+            _currentUser = new User.newUserFromAuth(result.user, "Apple");
             await getUserDataFromStore(result.user.uid)
                 .then((DocumentSnapshot snapShot) {
               if (snapShot == null || !(snapShot.exists)) {
@@ -258,13 +403,13 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> updateCurrentUser(FirebaseUser firebaseUser) async {
     getStoredUserFromAuth().then((FirebaseUser firebaseUser) async => {
-          getUserDataFromStore(firebaseUser.uid)
-              .then((DocumentSnapshot userSnap) {
-            _currentUser = new User.fromFirestore(userSnap);
-            print(_currentUser.createMap().toString());
-            notifyListeners();
-          })
-        });
+      getUserDataFromStore(firebaseUser.uid)
+          .then((DocumentSnapshot userSnap) {
+        _currentUser = new User.fromFirestore(userSnap);
+        print(_currentUser.createMap().toString());
+        notifyListeners();
+      })
+    });
   }
 
   Future<void> signOutUser(BuildContext context) async {
