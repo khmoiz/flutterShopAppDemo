@@ -15,6 +15,7 @@ import 'package:providerapp/screens/order_screen.dart';
 import 'package:providerapp/screens/products_overview_screen.dart';
 import 'package:providerapp/screens/user_favourite_products_screen.dart';
 import 'package:providerapp/screens/user_products_screen.dart';
+import 'package:providerapp/services/service_locator.dart';
 
 import './providers/products_provider.dart';
 import './screens/product_detail_screen.dart';
@@ -31,6 +32,7 @@ void main() {
   FlutterError.onError = Crashlytics.instance.recordFlutterError;
 
   runZoned(() {
+    setupLocator();
     runApp(MyApp());
   }, onError: Crashlytics.instance.recordError);
 }

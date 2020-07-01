@@ -8,7 +8,7 @@ import 'package:providerapp/models/auth_status.dart';
 import 'package:providerapp/models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class AuthProvider extends ChangeNotifier {
+class AuthService {
   static const SP_LOGGEDIN = 'logged-in';
   String _token, _userId;
   DateTime _expiryDate;
@@ -27,9 +27,9 @@ class AuthProvider extends ChangeNotifier {
   final Firestore _db = Firestore.instance;
   final GoogleSignIn _googleSignIn = new GoogleSignIn();
 
-  AuthProvider();
+  AuthService();
 
-  AuthProvider.initialize() {
+  AuthService.initialize() {
 //    readPrefs();
   }
 
@@ -41,7 +41,7 @@ class AuthProvider extends ChangeNotifier {
 
       if (loggedIn) {
         _userId = (await _auth.currentUser()).uid;
-        notifyListeners();
+
         return;
       }
     });
@@ -64,13 +64,11 @@ class AuthProvider extends ChangeNotifier {
             this.pCredential = phoneCredential;
             signInPhone(context);
             _status = AuthStatus.Authenticated;
-            notifyListeners();
           },
           verificationFailed: (AuthException exception) {
             print("§§§§§ AuthException :  ${exception.message} §§§§§§");
             throw ("Verification Failed");
             _status = AuthStatus.Uninitialized;
-            notifyListeners();
           },
           codeSent: (verificationId, [code]) =>
               _smsCodeSent(verificationId, [code]),
@@ -81,14 +79,13 @@ class AuthProvider extends ChangeNotifier {
                 _status = (value)
                     ? AuthStatus.Authenticated
                     : AuthStatus.Unauthenticated;
-                notifyListeners();
               });
             });
           });
     } catch (e) {
 //      handleError(e, context);
       errorMessage = (e as PlatformException).message;
-      notifyListeners();
+
       throw ((e as PlatformException).message);
     }
   }
@@ -110,13 +107,11 @@ class AuthProvider extends ChangeNotifier {
             this.pCredential = phoneCredential;
             signInPhone(context);
             _status = AuthStatus.Authenticated;
-            notifyListeners();
           },
           verificationFailed: (AuthException exception) {
             print("§§§§§ AuthException :  ${exception.message} §§§§§§");
             throw ("Verification Failed");
             _status = AuthStatus.Uninitialized;
-            notifyListeners();
           },
           codeSent: (verificationId, [code]) =>
               _smsCodeSent(verificationId, [code]),
@@ -127,14 +122,13 @@ class AuthProvider extends ChangeNotifier {
                 _status = (value)
                     ? AuthStatus.Authenticated
                     : AuthStatus.Unauthenticated;
-                notifyListeners();
               });
             });
           });
     } catch (e) {
 //      handleError(e, context);
       errorMessage = (e as PlatformException).message;
-      notifyListeners();
+
       throw ((e as PlatformException).message);
     }
   }
@@ -232,7 +226,7 @@ class AuthProvider extends ChangeNotifier {
               getUserFavourites();
             }
             verified = true;
-            notifyListeners();
+
 //          Navigator.of(context).pushNamed(ProductsOverview.routeName);
           });
           //        Navigator.of(context).pushNamed(ProductsOverview.routeName);
@@ -244,13 +238,13 @@ class AuthProvider extends ChangeNotifier {
     } on PlatformException catch (e) {
 //      handleError(e, context);
       errorMessage = e.message;
-      notifyListeners();
+
       return false;
     }
   }
 
-  Future<void> signUp(String email, String password, String nickname,
-      String number) async {
+  Future<void> signUp(
+      String email, String password, String nickname, String number) async {
     await _auth
         .createUserWithEmailAndPassword(email: email, password: password)
         .catchError((onError) {
@@ -265,7 +259,6 @@ class AuthProvider extends ChangeNotifier {
           nickName: nickname,
           phoneNumber: number);
       writeNewUserData(newUser);
-      notifyListeners();
     });
   }
 
@@ -275,23 +268,22 @@ class AuthProvider extends ChangeNotifier {
         .then((AuthResult result) {
       updateCurrentUser(result.user);
       getUserFavourites();
-      notifyListeners();
     }).catchError((onError) {
       _currentUser = null;
-      notifyListeners();
+
       throw Exception("${(onError as PlatformException).code}");
     });
   }
 
   Future<void> signInUsingGoogle() async {
     GoogleSignInAccount googleSignInAccount =
-    await _googleSignIn.signIn().catchError((onError) {
+        await _googleSignIn.signIn().catchError((onError) {
       throw Exception("${(onError as PlatformException).code}");
     });
     if (googleSignInAccount != null) {
       try {
         GoogleSignInAuthentication signInAuthentication =
-        await googleSignInAccount.authentication;
+            await googleSignInAccount.authentication;
         final AuthCredential credential = GoogleAuthProvider.getCredential(
           accessToken: signInAuthentication.accessToken,
           idToken: signInAuthentication.idToken,
@@ -310,7 +302,6 @@ class AuthProvider extends ChangeNotifier {
               getUserDataFromStore(_currentUser.id);
               getUserFavourites();
             }
-            notifyListeners();
           });
         }).catchError((onError) {
           throw Exception("${(onError as PlatformException).code}");
@@ -330,13 +321,12 @@ class AuthProvider extends ChangeNotifier {
         .where("isFavourite", isEqualTo: true)
         .getDocuments()
         .then((snapShot) => {
-      print("${snapShot.toString()}"),
-      snapShot.documents.forEach((favItem) {
-        _userFavourites.add(favItem['id']);
-        print('${favItem['id']}');
-      }),
-    });
-    notifyListeners();
+              print("${snapShot.toString()}"),
+              snapShot.documents.forEach((favItem) {
+                _userFavourites.add(favItem['id']);
+                print('${favItem['id']}');
+              }),
+            });
   }
 
   static Future<bool> checkAppleSignIn() async {
@@ -357,7 +347,7 @@ class AuthProvider extends ChangeNotifier {
           final credential = oAuthProvider.getCredential(
             idToken: String.fromCharCodes(appleIdCredential.identityToken),
             accessToken:
-            String.fromCharCodes(appleIdCredential.authorizationCode),
+                String.fromCharCodes(appleIdCredential.authorizationCode),
           );
           await _auth
               .signInWithCredential(credential)
@@ -372,7 +362,6 @@ class AuthProvider extends ChangeNotifier {
                 getUserDataFromStore(_currentUser.id)
                     .then((value) => {getUserFavourites()});
               }
-              notifyListeners();
             });
           }).catchError((onError) {
             throw Exception("${(onError as PlatformException).code}");
@@ -403,19 +392,17 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> updateCurrentUser(FirebaseUser firebaseUser) async {
     getStoredUserFromAuth().then((FirebaseUser firebaseUser) async => {
-      getUserDataFromStore(firebaseUser.uid)
-          .then((DocumentSnapshot userSnap) {
-        _currentUser = new User.fromFirestore(userSnap);
-        print(_currentUser.createMap().toString());
-        notifyListeners();
-      })
-    });
+          getUserDataFromStore(firebaseUser.uid)
+              .then((DocumentSnapshot userSnap) {
+            _currentUser = new User.fromFirestore(userSnap);
+            print(_currentUser.createMap().toString());
+          })
+        });
   }
 
   Future<void> signOutUser(BuildContext context) async {
     _auth.signOut().then((_) {
       _currentUser = null;
-      notifyListeners();
     });
   }
 

@@ -1,6 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:providerapp/models/auth_status.dart';
+import 'package:providerapp/models/user.dart';
 import 'package:providerapp/providers/auth_provider.dart';
 import 'package:providerapp/screens/demo_user_home_screen.dart';
 import 'package:providerapp/screens/products_overview_screen.dart';
@@ -21,12 +24,14 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
   final _emailForm = GlobalKey<FormState>();
   final _phoneForm = GlobalKey<FormState>();
   var passwordNode = FocusNode();
+  FirebaseAuth _firebaseAuth;
+  User _currentUser;
 
   AuthType _currentAuth = AuthType.Phone;
 
   bool showOTPField = false;
   final regExNumber =
-      new RegExp('^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\./0-9]*\$');
+  new RegExp('^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\./0-9]*\$');
 
   void changeAuthType() {
     setState(() {
@@ -39,9 +44,13 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+  void initState() {
+    super.initState();
+    _firebaseAuth = FirebaseAuth.instance;
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Card(
       elevation: 5,
       child: Padding(
@@ -56,10 +65,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
             (_currentAuth == AuthType.Phone)
                 ? phoneLoginForm()
                 : emailLoginForm(),
-            authSignInButton(context, authProvider),
-            (_currentAuth == AuthType.Email)
-                ? googleSignInButton(context, authProvider)
-                : Container(),
+            authSignInButton(context),
             RaisedButton(
               child: Text('Go Demo'),
               onPressed: () {
@@ -72,8 +78,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
     );
   }
 
-  Future<void> signInWithAuth(
-      BuildContext context, AuthProvider authProvider) async {
+  Future<void> signInWithAuth(BuildContext context, AuthProvider authProvider) async {
     switch (_currentAuth) {
       case AuthType.Email:
         if (_emailForm.currentState.validate()) {
@@ -195,7 +200,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
     });
   }
 
-  authSignInButton(BuildContext context, AuthProvider authProvider) {
+  authSignInButton(BuildContext context, {AuthProvider authProvider}) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: RaisedButton(
@@ -223,23 +228,6 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
     );
   }
 
-  googleSignInButton(BuildContext context, AuthProvider authProvider) {
-    return Padding(
-      padding: const EdgeInsets.all(5.0),
-      child: RaisedButton(
-        color: Colors.white,
-        child: Text(
-          'Sign In Using Google Account',
-          style: TextStyle(
-              fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
-        ),
-        onPressed: () {
-          signInWithGoogle(context);
-        },
-      ),
-    );
-  }
-
   phoneLoginForm() {
     return Form(
       key: _phoneForm,
@@ -249,7 +237,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
             TextFormField(
               controller: phoneTextController,
               decoration:
-                  InputDecoration(labelText: 'Phone Number', prefixText: "+1"),
+              InputDecoration(labelText: 'Phone Number', prefixText: "+1"),
               textInputAction: TextInputAction.next,
               keyboardType: TextInputType.phone,
               onFieldSubmitted: (_) =>
@@ -280,6 +268,16 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
         ),
       ),
     );
+  }
+
+  Future<AuthResult> signIn(String email, String password) async {
+    AuthResult result = await _firebaseAuth
+        .signInWithEmailAndPassword(email: email, password: password)
+        .catchError((onError) {
+      _currentUser = null;
+      throw Exception("${(onError as PlatformException).code}");
+    });
+    return result;
   }
 
   emailLoginForm() {
@@ -328,9 +326,7 @@ class _LoginSigninTabState extends State<LoginSigninTab> {
                 child: FlatButton(
                   child: Text(
                     'Want to use your Phone number instead?',
-                    style: TextStyle(color: Theme
-                        .of(context)
-                        .primaryColor),
+                    style: TextStyle(color: Theme.of(context).primaryColor),
                   ),
                   onPressed: () {
                     changeAuthType();
